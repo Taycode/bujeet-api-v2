@@ -1,4 +1,4 @@
 import { Request } from 'express';
-import { UserWithoutPassword } from '../../src/user/types/authenticate-user.type';
+import { User } from '../../src/user/schemas/user.schema';
 
-export type ICustomRequest = Request & { user: UserWithoutPassword };
+export type ICustomRequest = Request & { user: User };

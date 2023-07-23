@@ -12,7 +12,7 @@ export class BudgetConsumer {
     try {
       await this.budgetService.processEachBudget(budget, job);
     } catch (e) {
-      await job.log(`Error: ${e.message}`);
+      // await job.log(`Error: ${e.message}`);
     }
   }
 }

@@ -15,8 +15,8 @@ export class PaystackService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.secretKey = this.configService.get<string>('PAYSTACK_SECRET');
-    this.baseUrl = this.configService.get<string>('PAYSTACK_BASE_URL');
+    this.secretKey = this.configService.get<string>('PAYSTACK_SECRET', '');
+    this.baseUrl = this.configService.get<string>('PAYSTACK_BASE_URL', '');
   }
 
   async verifyTransaction(reference: string): Promise<IVerifyTransaction> {
