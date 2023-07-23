@@ -17,6 +17,7 @@ import { LoginUserDto } from './dto/authenticate-user.dto';
 import { AuthenticateUserResponse } from './interface/authenticate-user.interface';
 import { UserExceptionFilter } from './filters/user.filter';
 import { UserWithoutPassword } from './types/authenticate-user.type';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('user')
 @UseFilters(UserExceptionFilter)
@@ -53,6 +54,7 @@ export class UserController {
 
   @Get('/fetch-me')
   @UseGuards(JWTAuthGuard)
+  @ApiBearerAuth()
   async fetchLoggedInUser(
     @Req() req: ICustomRequest,
   ): Promise<ResponseInterface<UserWithoutPassword>> {
