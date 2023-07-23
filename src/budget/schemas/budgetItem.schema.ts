@@ -1,20 +1,20 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 import { Budget } from './budget.schema';
 
 export enum BudgetItemType {
-  recurring = 'recurring',
-  non_recurring = 'non_recurring',
+  oneTime = 'one-time',
+  daily = 'daily',
 }
 
 @Schema({ timestamps: true })
 export class BudgetItem {
   @Prop({
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
     ref: Budget.name,
     required: true,
   })
-  budgetId: string;
+  budget: Budget | string;
 
   @Prop({ required: true })
   name: string;
@@ -30,7 +30,7 @@ export class BudgetItem {
   type: BudgetItemType;
 
   @Prop({ required: false })
-  date?: Date;
+  date: Date;
 }
 
 export type BudgetItemDocument = BudgetItem & Document;

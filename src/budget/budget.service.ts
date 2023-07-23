@@ -10,6 +10,16 @@ import { BankService } from '../bank/bank.service';
 import { Bank } from '../bank/schemas/bank.schema';
 import { Job, Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
+import {
+  AddBudgetItemsDto,
+  CreateBudgetItemInputDto,
+} from './dto/add-budget-items.dto';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
+import {
+  BudgetItemsCreationError,
+  BudgetNotFoundException,
+} from './exceptions/budget.exception';
 
 @Injectable()
 export class BudgetService {
@@ -19,33 +29,64 @@ export class BudgetService {
     private readonly paystackService: PaystackService,
     private readonly bankService: BankService,
     @InjectQueue('budgets') private budgetQueue: Queue,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
   async createBudget(payload: CreateBudgetDto, user: User) {
-    const budget = await this.budgetRepository.create({
-      userId: user._id,
+    return this.budgetRepository.create({
+      user: user._id,
       name: payload.name,
-      amount: payload.amount,
+      balance: payload.estimatedAmount,
+      estimatedAmount: payload.estimatedAmount,
+      calculatedAmount: payload.estimatedAmount,
     });
-    const budgetItemPayload = payload.items.map((_) => {
-      return { ..._, budgetId: budget._id };
+  }
+
+  async addItemsToBudget(payload: AddBudgetItemsDto, budget: Budget) {
+    const budgetItemsPayload: CreateBudgetItemInputDto[] = payload.items.map(
+      (eachItem) => {
+        return { ...eachItem, budget: budget._id };
+      },
+    );
+    const session = await this.connection.startSession();
+    try {
+      await this.budgetItemRepository.createMany(budgetItemsPayload, session);
+      await this.budgetItemRepository.transactionalFindOneAndUpdate(
+        {
+          budget: budget._id,
+        },
+        { status: BudgetStatus.inactive },
+        session,
+      );
+    } catch (e) {
+      throw new BudgetItemsCreationError();
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async fetchUserBudgetOrFail(budgetId: string, user: User) {
+    const budget = await this.budgetRepository.findOneWithUserPopulated({
+      _id: budgetId,
+      user,
     });
-    const budgetItems = await this.budgetItemRepository.createMany([
-      ...budgetItemPayload,
-    ]);
-    return { budget, budgetItems };
+    if (budget) return budget;
+    throw new BudgetNotFoundException();
   }
 
   async fetchBudgets(user: User) {
-    return this.budgetRepository.find({ userId: user._id })
+    return this.budgetRepository.find({ user: user._id });
   }
 
-  async calculateBudget(budget: CreateBudgetDto) {
-    const budgetAmount = budget.amount;
-    const dailyExpense = budget.items.filter(
-      (_) => _.type === BudgetItemType.recurring,
+  async calculateBudget(
+    budget: Budget,
+    budgetItems: AddBudgetItemsDto['items'],
+  ) {
+    const budgetAmount = budget.estimatedAmount;
+    const dailyExpense = budgetItems.filter(
+      (_) => _.type === BudgetItemType.daily,
     );
-    const oneTimeExpense = budget.items.filter(
-      (_) => _.type === BudgetItemType.non_recurring,
+    const oneTimeExpense = budgetItems.filter(
+      (_) => _.type === BudgetItemType.oneTime,
     );
     let dailyExpenseAmount = dailyExpense.reduce(
       (prev, next) => prev + next.amount,
@@ -61,7 +102,7 @@ export class BudgetService {
     const canProceed = balance >= 0;
     return {
       planName: budget.name,
-      expenseItemCount: budget.items.length,
+      expenseItemCount: budgetItems.length,
       dailyExpenseItemCount: dailyExpense.length,
       oneTimeExpenseItemCount: oneTimeExpense.length,
       budgetAmount,
@@ -97,14 +138,14 @@ export class BudgetService {
     // Fetch all re-occurring budgets
     const dailyExpenses = await this.budgetItemRepository.find({
       budgetId: budget._id,
-      type: BudgetItemType.recurring,
+      type: BudgetItemType.daily,
     });
 
     await job.log(`Daily Expenses fetched, count: ${dailyExpenses.length}`);
 
     const oneTimeExpenses = await this.budgetItemRepository.find({
       budgetId: budget._id,
-      type: BudgetItemType.non_recurring,
+      type: BudgetItemType.oneTime,
       date: { $gte: today, $lt: tomorrow },
     });
 
@@ -121,7 +162,7 @@ export class BudgetService {
     await job.log(`Total amount to reinburse: ${expensesAmount}`);
 
     const userBank = await this.bankService.fetchUserBankWithUserId(
-      budget.userId,
+      budget.user as string,
     );
 
     await job.log(`User bank fetched`);

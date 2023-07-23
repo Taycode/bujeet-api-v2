@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { BankRepository } from './bank.repository';
 import { User } from '../user/schemas/user.schema';
 import { CreateBankDto } from './dto/create-bank.dto';
-import mongoose from 'mongoose';
 
 @Injectable()
 export class BankService {
@@ -16,7 +15,7 @@ export class BankService {
     return this.bankRepository.findOne({ userId: user._id });
   }
 
-  async fetchUserBankWithUserId(userId: mongoose.Schema.Types.ObjectId) {
+  async fetchUserBankWithUserId(userId: string) {
     return this.bankRepository.findOne({ userId });
   }
 }

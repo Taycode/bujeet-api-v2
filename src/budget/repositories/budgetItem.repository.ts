@@ -2,6 +2,8 @@ import { Model } from 'mongoose';
 import { BaseRepository } from '../../../common/base.repository';
 import { InjectModel } from '@nestjs/mongoose';
 import { BudgetItem, BudgetItemDocument } from '../schemas/budgetItem.schema';
+import { ClientSession } from 'mongodb';
+import { CreateBudgetItemInputDto } from '../dto/add-budget-items.dto';
 
 export class BudgetItemRepository extends BaseRepository<BudgetItemDocument> {
   constructor(
@@ -9,12 +11,10 @@ export class BudgetItemRepository extends BaseRepository<BudgetItemDocument> {
   ) {
     super(budgetItemModel);
   }
-
-  async create<T>(payload: T): Promise<BudgetItemDocument> {
-    return super.create(payload);
-  }
-
-  async createMany(payload): Promise<BudgetItemDocument[]> {
-    return super.create([...payload]);
+  async createMany(
+    payload: CreateBudgetItemInputDto[],
+    session: ClientSession,
+  ) {
+    return super.create([...payload], session);
   }
 }
