@@ -1,90 +1,47 @@
 import { UserService } from './user.service';
 import {
   Body,
-  Controller, Get,
-  HttpException,
-  HttpStatus,
+  Controller,
+  Get,
   Post,
-  Req, UseGuards
-} from "@nestjs/common";
-import { UserRepository } from './user.repository';
+  Req,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { User } from './schemas/user.schema';
 import { ICustomRequest } from '../../common/types/custom-request.type';
-import * as jwt from 'jsonwebtoken';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { JWTAuthGuard } from "./guard/jwt.guard";
+import { JWTAuthGuard } from './guard/jwt.guard';
+import { ResponseInterface } from '../../common/interfaces/response.interface';
+import { CreateUserResponse } from './interface/create-user.interface';
+import { LoginUserDto } from './dto/authenticate-user.dto';
+import { AuthenticateUserResponse } from './interface/authenticate-user.interface';
+import { UserExceptionFilter } from './filters/user.filter';
+import { UserWithoutPassword } from './types/authenticate-user.type';
 
 @Controller('user')
+@UseFilters(UserExceptionFilter)
 export class UserController {
-  constructor(
-    private readonly userService: UserService,
-    private readonly userRepository: UserRepository,
-    private readonly configService: ConfigService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   @Post('/login')
-  async loginUser(@Body() payload: any) {
-    const { email, password } = payload;
-    if (!email) {
-      throw new HttpException(
-        'Email is required/malformed',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (!password) {
-      throw new HttpException('Password is required', HttpStatus.BAD_REQUEST);
-    }
-
-    const user = await this.userRepository.findOne({ email });
-
-    if (user) {
-      const validatePassword = await this.userService.comparePassword(
-        password,
-        user.passwordHash,
-      );
-      if (validatePassword) {
-        const token = await this.jwtService.signAsync(
-          {
-            email: user.email,
-            _id: user._id,
-          },
-          { secret: this.configService.get('SECRET') },
-        );
-        return {
-          status: true,
-          message: 'Login successful',
-          data: { token },
-        };
-      }
-    }
-    throw new HttpException('Invalid credentials', HttpStatus.BAD_REQUEST);
+  async loginUser(
+    @Body() payload: LoginUserDto,
+  ): Promise<ResponseInterface<AuthenticateUserResponse>> {
+    const authToken = await this.userService.authenticateUser(payload);
+    return {
+      message: 'Authentication successful',
+      data: {
+        token: authToken,
+      },
+    };
   }
 
   @Post('/register')
-  async registerUser(@Body() payload: RegisterUserDto) {
-    const { email, password } = payload;
-
-    const oldUser = await this.userRepository.findOne({ email });
-
-    if (oldUser) {
-      throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
-    }
-    const passwordHash = await this.userService.generatePassword(password);
-
-    const createUserPayload: Omit<User, '_id'> = {
-      email,
-      passwordHash,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-    };
-
-    const newUser = await this.userRepository.create(createUserPayload);
-
+  async registerUser(
+    @Body() payload: RegisterUserDto,
+  ): Promise<ResponseInterface<CreateUserResponse>> {
+    const newUser = await this.userService.createUser(payload);
     return {
-      status: true,
       message: 'Registration successful',
       data: {
         email: newUser.email,
@@ -96,10 +53,11 @@ export class UserController {
 
   @Get('/fetch-me')
   @UseGuards(JWTAuthGuard)
-  async fetchLoggedInUser(@Req() req: ICustomRequest) {
+  async fetchLoggedInUser(
+    @Req() req: ICustomRequest,
+  ): Promise<ResponseInterface<UserWithoutPassword>> {
     const { user } = req;
     return {
-      status: true,
       message: 'User fetched',
       data: user,
     };

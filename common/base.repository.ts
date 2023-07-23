@@ -28,7 +28,7 @@ export abstract class BaseRepository<T extends Document> {
     query: FilterQuery<T>,
     projections?: any | null,
   ): Promise<T | null> {
-    return this.model.findOne(query, projections).lean();
+    return this.model.findOne<T>(query, projections).lean();
   }
 
   public async findOneWithPopulation(

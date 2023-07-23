@@ -16,6 +16,9 @@ export class User {
 
   @Prop({ required: true })
   passwordHash: string;
+
+  @Prop({ default: false })
+  emailVerified: boolean;
 }
 
 export type UserDocument = Document & User;

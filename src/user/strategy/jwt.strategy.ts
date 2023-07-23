@@ -3,6 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserService } from '../user.service';
 import { ConfigService } from '@nestjs/config';
+import { omit } from 'lodash';
+import { UserWithoutPassword } from '../types/authenticate-user.type';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get('SECRET'), // replace with your own secret
+      secretOrKey: configService.get('SECRET'),
     });
   }
 
@@ -22,7 +24,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('Invalid token');
     }
-
-    return user;
+    return omit(user, 'passwordHash') as UserWithoutPassword;
   }
 }
