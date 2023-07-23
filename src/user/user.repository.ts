@@ -10,6 +10,6 @@ export class UserRepository extends BaseRepository<UserDocument> {
   }
 
   async create(payload: CreateUserInputDto): Promise<UserDocument> {
-    return super.model.create(payload);
+    return super.create(payload);
   }
 }
