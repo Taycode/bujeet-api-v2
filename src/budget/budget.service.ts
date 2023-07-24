@@ -17,9 +17,12 @@ import {
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import {
+  BudgetAlreadyFilledException,
   BudgetItemsCreationError,
   BudgetNotFoundException,
+  UserAlreadyHasABudgetException,
 } from './exceptions/budget.exception';
+import { CalculateBudgetInterface } from './interfaces/calculate-budget.interface';
 
 @Injectable()
 export class BudgetService {
@@ -32,6 +35,10 @@ export class BudgetService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
   async createBudget(payload: CreateBudgetDto, user: User) {
+    const existingBudget = await this.budgetRepository.findOne({
+      user,
+    });
+    if (existingBudget) throw new UserAlreadyHasABudgetException();
     return this.budgetRepository.create({
       user: user._id,
       name: payload.name,
@@ -42,15 +49,20 @@ export class BudgetService {
   }
 
   async addItemsToBudget(payload: AddBudgetItemsDto, budget: Budget) {
+    if (budget.status !== BudgetStatus.incomplete)
+      throw new BudgetAlreadyFilledException();
+
     const budgetItemsPayload: CreateBudgetItemInputDto[] = payload.items.map(
       (eachItem) => {
         return { ...eachItem, budget: budget._id };
       },
     );
+
     const session = await this.connection.startSession();
+
     try {
       await this.budgetItemRepository.createMany(budgetItemsPayload, session);
-      await this.budgetItemRepository.transactionalFindOneAndUpdate(
+      await this.budgetRepository.transactionalFindOneAndUpdate(
         {
           budget: budget._id,
         },
@@ -64,7 +76,7 @@ export class BudgetService {
     }
   }
 
-  async fetchUserBudgetOrFail(budgetId: string, user: User) {
+  async fetchUserBudgetWithIdOrFail(budgetId: string, user: User) {
     const budget = await this.budgetRepository.findOneWithUserPopulated({
       _id: budgetId,
       user,
@@ -73,14 +85,14 @@ export class BudgetService {
     throw new BudgetNotFoundException();
   }
 
-  async fetchBudgets(user: User) {
-    return this.budgetRepository.find({ user: user._id });
+  async fetchUserBudget(user: User) {
+    return this.budgetRepository.findOne({ user: user._id });
   }
 
   async calculateBudget(
     budget: Budget,
     budgetItems: AddBudgetItemsDto['items'],
-  ) {
+  ): Promise<CalculateBudgetInterface> {
     const budgetAmount = budget.estimatedAmount;
     const dailyExpense = budgetItems.filter(
       (_) => _.type === BudgetItemType.daily,
@@ -106,28 +118,28 @@ export class BudgetService {
       dailyExpenseItemCount: dailyExpense.length,
       oneTimeExpenseItemCount: oneTimeExpense.length,
       budgetAmount,
-      expenses: totalAmount,
+      totalExpenses: totalAmount,
       balance,
       canProceed,
     };
   }
 
-  async confirmBudgetPayment(budgetId: string, reference: string) {
-    const transaction = await this.paystackService.verifyTransaction(reference);
-    if (transaction.data.status === 'success') {
-      return this.budgetRepository.findOneAndUpdate(
-        { _id: budgetId },
-        { status: BudgetStatus.active },
-      );
-    }
-    throw new Error('Payment was not successful');
-  }
-
-  async fetchBudgetsForProcessing() {
-    // fetch all budgets
-    const budgets = await this.budgetRepository.find({});
-    budgets.map((_) => this.budgetQueue.add('budgets', _));
-  }
+  // async confirmBudgetPayment(budgetId: string, reference: string) {
+  //   const transaction = await this.paystackService.verifyTransaction(reference);
+  //   if (transaction.data.status === 'success') {
+  //     return this.budgetRepository.findOneAndUpdate(
+  //       { _id: budgetId },
+  //       { status: BudgetStatus.active },
+  //     );
+  //   }
+  //   throw new Error('Payment was not successful');
+  // }
+  //
+  // async fetchBudgetsForProcessing() {
+  //   // fetch all budgets
+  //   const budgets = await this.budgetRepository.find({});
+  //   budgets.map((_) => this.budgetQueue.add('budgets', _));
+  // }
 
   async processEachBudget(budget: Budget, job: Job) {
     const today = new Date();
