@@ -63,7 +63,8 @@ export abstract class BaseRepository<T extends Document> {
         new: true,
         ...options,
       })
-      .session(session);
+      .session(session)
+      .lean();
   }
 
   public async find(

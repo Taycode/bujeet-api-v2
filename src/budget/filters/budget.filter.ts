@@ -1,10 +1,10 @@
 import { ArgumentsHost, Catch, HttpStatus } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
-import * as userExceptions from '../exceptions/user.exception';
+import * as budgetExceptions from '../exceptions/budget.exception';
 
 @Catch()
-export class UserExceptionFilter extends BaseExceptionFilter {
-  errors = Object.values(userExceptions);
+export class BudgetExceptionFilter extends BaseExceptionFilter {
+  errors = Object.values(budgetExceptions);
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();

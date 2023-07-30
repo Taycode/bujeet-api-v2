@@ -1,10 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
+import { User } from '../../user/schemas/user.schema';
 
 export enum BudgetStatus {
+  incomplete = 'incomplete',
   inactive = 'inactive',
   active = 'active',
-  completed = 'completed',
 }
 
 @Schema({ timestamps: true })
@@ -13,18 +14,10 @@ export class Budget {
 
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
+    ref: User.name,
     required: true,
-    ref: 'user',
   })
-  userId: mongoose.Schema.Types.ObjectId;
-
-  @Prop({
-    type: String,
-    required: true,
-    default: BudgetStatus.inactive,
-    enum: BudgetStatus,
-  })
-  status: BudgetStatus;
+  user: User | string;
 
   @Prop({
     type: String,
@@ -33,17 +26,30 @@ export class Budget {
   name: string;
 
   @Prop({
-    type: Number,
+    type: String,
     required: true,
+    default: BudgetStatus.incomplete,
+    enum: BudgetStatus,
   })
-  amount: number;
+  status: BudgetStatus;
 
   @Prop({
     type: Number,
     required: false,
-    default: 0,
   })
   balance: number;
+
+  @Prop({
+    type: Number,
+    required: true,
+  })
+  estimatedAmount: number;
+
+  @Prop({
+    type: Number,
+    required: true,
+  })
+  calculatedAmount: number;
 }
 
 export type BudgetDocument = Document & Budget;

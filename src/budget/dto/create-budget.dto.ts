@@ -1,38 +1,24 @@
-import {
-  IsString,
-  IsNumber,
-  IsDate,
-  ValidateNested,
-  ArrayMinSize,
-  ArrayNotEmpty,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { BudgetItemType } from "../schemas/budgetItem.schema";
-
-export class CreateBudgetItemDto {
-  @IsString()
-  name: string;
-
-  @IsNumber()
-  amount: number;
-
-  @IsString()
-  type: BudgetItemType;
-
-  @IsDate()
-  date: Date;
-}
+import { IsString, IsNumber } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateBudgetDto {
   @IsString()
+  @ApiProperty({ type: String, required: true, description: 'Name of budget' })
   name: string;
 
   @IsNumber()
-  amount: number;
+  @ApiProperty({
+    type: Number,
+    required: true,
+    description: 'Estimated amount',
+  })
+  estimatedAmount: number;
+}
 
-  @ArrayMinSize(1)
-  @ArrayNotEmpty()
-  @ValidateNested({ each: true })
-  @Type(() => CreateBudgetItemDto)
-  items: CreateBudgetItemDto[];
+export class CreateBudgetInputDto {
+  name: string;
+  user: string;
+  balance: number;
+  estimatedAmount: number;
+  calculatedAmount: number;
 }

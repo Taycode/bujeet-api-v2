@@ -8,7 +8,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserTokenPayload } from './types/authenticate-user.type';
 import { IncorrectCredentialsException } from './exceptions/user.exception';
-import { UserEntity } from './entity/user.entity';
 
 @Injectable()
 export class UserService {
